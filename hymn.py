@@ -6,7 +6,48 @@ import re
 import json
 import argparse
 
-    
+
+def is_chorus(text, verses):
+    chorus_string = "[Chorus]\n"
+    if chorus_string in text:
+        chorus = text.replace(chorus_string, "")
+        return chorus
+    for verse in verses:
+        if text == verse:
+            return text
+    return False
+
+def remove_chorus_from_verses(verses, chorus) -> list:
+    return_verses = []
+    for index, verse in enumerate(verses):
+        if chorus != verse:
+            return_verses.append(verse)
+    return return_verses
+
+def append_chorus_to_each_verse(verses, chorus) -> list:
+    if not chorus:
+        return_verses = verses
+        return verses
+
+    return_verses = []
+    for verse in verses:
+        return_verse = f"{verse}\n\n\t[Chorus]\n{chorus}"
+        return_verses.append(return_verse)
+    return return_verses
+
+def add_verse_numbers(verses) -> list:
+    return_verses = []
+    for index, verse in enumerate(verses):
+
+        verse_number = index + 1
+        pattern = "^\\d+\\."
+        match = re.match(pattern, verse)
+        if match:
+            return_verse = verse
+        else:
+            return_verse = f"{verse_number}. {verse}"
+        return_verses.append(return_verse)
+    return return_verses
 
 class hymn:
     def __init__(self, number, url, name):
@@ -34,7 +75,7 @@ class hymn:
 
     def print_hymn(self):
         verses = self.download_verses()
-        print(self.name)
+        print(f"#{self.number}\n{self.name}")
         print()
         for verse in verses:
             print(verse)
@@ -45,6 +86,8 @@ class hymn:
         return jsonstr
 
 
+
+
     def download_verses(self):
         verses = []
         r = requests.get(self.url)
@@ -53,28 +96,24 @@ class hymn:
 
         s = soup.find_all('p', class_ = 'line')
         
-        for index, paragraph in enumerate(s):
-            verse_number = index + 1
+        chorus = None
+
+        for paragraph in s:
             text = paragraph.get_text("\n").replace("\n\n", "\n")
-            pattern = "^\\d+\\."
-            match = re.match(pattern, text)
-            if not match:
-                text = f"{verse_number}. {text}"
+
+            if is_chorus(text, verses):
+                chorus = is_chorus(text, verses)
+                continue
+
             verses.append(text)
+
+        if chorus:
+            verses = remove_chorus_from_verses(verses, chorus)
+            verses = append_chorus_to_each_verse(verses, chorus)
+
+        verses = add_verse_numbers(verses)        
+
         return verses
-
-        # hymns = {}
-
-        # for hymn_p in s:
-        #     aref = hymn_p.find('a', class_='featurestext3')
-        #     h = hymn.from_hymn_p(hymn_p)
-        #     hymns[h.number] = h
-        #     continue
-        
-        # return hymns
-    # Making a GET request
-    # r = requests.get('https://www.geeksforgeeks.org/python-programming-language/')
-
 
 def download_hymns():
     r = requests.get('https://www.churchofjesuschrist.org/music/text/hymns?lang=eng')
@@ -145,7 +184,7 @@ def main():
     
     parser.add_argument(
         'hymn_number', metavar='int', type=int,
-        help='Hymn Number', default = 1, nargs='?')
+        help='Hymn Number', default = 144, nargs='?')
     args = parser.parse_args()
 
     hymns = create_hymn_dictionary()
